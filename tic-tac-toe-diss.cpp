@@ -1,44 +1,9 @@
 /**
- * ╔══════════════════════════════════════════════════════════════╗
- * ║             TIC TAC TOE DISAPPEAR  –  main.cpp              ║
- * ╚══════════════════════════════════════════════════════════════╝
+ * Tic Tac Toe Disappear - main.cpp
  *
- * TOPIK   : Tic Tac Toe Disappear (Variant permainan strategi)
- *
- * STRUKTUR DATA YANG DIGUNAKAN:
- * ─────────────────────────────
- *  1. Array 2D  (std::array<std::array<Cell,3>,3>)
- *       └─ Merepresentasikan papan 3x3.
- *          Akses sel O(1), memori statis, tidak perlu alokasi heap.
- *
- *  2. Queue  (std::deque sebagai queue FIFO)
- *       └─ Menyimpan urutan penempatan bidak tiap pemain.
- *          Bidak terlama ada di front(); ketika antrian penuh (≥3),
- *          front() di-pop dan bidaknya dihapus dari papan.
- *          Inilah inti mekanik "disappear".
- *
- *  3. Struct Pos
- *       └─ Menyimpan koordinat (baris, kolom) sebuah bidak.
- *
- * FITUR WAJIB:
- * ────────────
- *  ✔ Tambah Data  → addPiece()     meletakkan bidak baru ke papan
- *  ✔ Hapus Data   → removePiece()  menghapus bidak terlama otomatis
- *  ✔ Cari Data    → searchWin()    mencari tiga bidak sejajar (menang)
- *  ✔ Tampil Data  → FTXUI renderer menampilkan papan, antrian, status
- *
- * ATURAN PERMAINAN:
- * ─────────────────
- *  • Dua pemain (X dan O) bergantian menaruh bidak di papan 3x3.
- *  • Setiap pemain MAKSIMAL punya 3 bidak di papan sekaligus.
- *  • Saat meletakkan bidak ke-4, bidak PERTAMA (terlama) menghilang.
- *  • Pemain yang membuat 3 bidaknya sejajar (baris/kolom/diagonal) menang.
- *  • Tidak ada seri – permainan terus hingga ada pemenang.
- *
- * KONTROL:
- * ────────
- *  ↑↓←→   Gerak kursor          Enter   Letakkan bidak
- *  R       Restart permainan     Q       Keluar
+ * Variant permainan strategi tic tac toe dengan mekanik "disappear".
+ * Dua pemain (X dan O) maksimal punya 3 bidak sekaligus di papan 3x3.
+ * Bidak terlama hilang otomatis saat pemain meletakkan bidak ke-4.
  */
 
 #include <ftxui/component/component.hpp>
@@ -53,48 +18,42 @@
 
 using namespace ftxui;
 
-// ════════════════════════════════════════════════════════════════
-//  Konstanta
-// ════════════════════════════════════════════════════════════════
-constexpr int BOARD_SIZE = 3;  ///< Ukuran papan (3×3)
-constexpr int MAX_PIECES = 3;  ///< Maksimum bidak per pemain
+// ===============================================
+//  KONSTANTA
+// ===============================================
+constexpr int BOARD_SIZE = 3;  // papan 3x3
+constexpr int MAX_PIECES = 3;  // maks 3 bidak per pemain
 
-// ════════════════════════════════════════════════════════════════
-//  Tipe Dasar
-// ════════════════════════════════════════════════════════════════
-enum class Cell   { Empty, X, O };           ///< Isi satu sel papan
-enum class Status { Playing, XWins, OWins }; ///< Status permainan
+// ===============================================
+//  TIPE DATA
+// ===============================================
+enum class Cell   { Empty, X, O };           // isi satu sel
+enum class Status { Playing, XWins, OWins }; // status game
 
-/// Posisi (baris, kolom) di papan
-struct Pos {
+struct Pos { // koordinat (baris, kolom)
     int r = 0, c = 0;
     bool operator==(const Pos& o) const noexcept { return r == o.r && c == o.c; }
 };
 
-// ════════════════════════════════════════════════════════════════
-//  Kelas Game  –  logika permainan
-// ════════════════════════════════════════════════════════════════
+// ===============================================
+//  GAME CLASS - logika permainan
+// ===============================================
 class Game {
 public:
-    // ── Struktur Data ─────────────────────────────────────────────
-    /// Array 2D: papan permainan 3×3
+    // STRUKTUR DATA
     std::array<std::array<Cell, BOARD_SIZE>, BOARD_SIZE> board{};
+    std::deque<Pos> q_x;  // queue bidak X (depan = terlama)
+    std::deque<Pos> q_o;  // queue bidak O (depan = terlama)
 
-    /// Queue FIFO: urutan bidak pemain X (depan = terlama)
-    std::deque<Pos> q_x;
-    /// Queue FIFO: urutan bidak pemain O (depan = terlama)
-    std::deque<Pos> q_o;
-
-    // ── State ──────────────────────────────────────────────────────
+    // STATE
     bool   x_turn      = true;
     Status status      = Status::Playing;
-    int    cursor_r    = 1;   ///< Posisi kursor (baris)
-    int    cursor_c    = 1;   ///< Posisi kursor (kolom)
-    int    total_move  = 0;   ///< Total langkah yang sudah dimainkan
-    int    x_wins      = 0;   ///< Jumlah kemenangan X (antar sesi)
-    int    o_wins      = 0;   ///< Jumlah kemenangan O (antar sesi)
+    int    cursor_r    = 1;   // posisi kursor row
+    int    cursor_c    = 1;   // posisi kursor col
+    int    total_move  = 0;   // total langkah
+    int    x_wins      = 0;   // kemenangan X
+    int    o_wins      = 0;   // kemenangan O
 
-    // ── Inisialisasi / Reset ───────────────────────────────────────
     void reset() {
         for (auto& row : board) row.fill(Cell::Empty);
         q_x.clear();
@@ -106,12 +65,9 @@ public:
         total_move = 0;
     }
 
-    // ────────────────────────────────────────────────────────────────
-    //  TAMBAH DATA
-    //  addPiece() – menempatkan bidak baru pada posisi kursor.
-    //  Jika antrian penuh, bidak terlama dihapus terlebih dahulu.
-    //  Return: true jika berhasil, false jika posisi tidak valid.
-    // ────────────────────────────────────────────────────────────────
+    // === FITUR 1: TAMBAH DATA ===
+    // Letakkan bidak baru di posisi kursor.
+    // Jika antrian penuh (>=3), otomatis hapus bidak terlama dulu.
     bool addPiece() {
         if (status != Status::Playing) return false;
 
@@ -119,73 +75,64 @@ public:
         Cell  cur = x_turn ? Cell::X : Cell::O;
         Pos   target{cursor_r, cursor_c};
 
-        // Tentukan bidak yang akan hilang (jika antrian sudah penuh)
+        // cek apakah bidak terlama akan dihapus
         std::optional<Pos> dying;
         if (static_cast<int>(q.size()) >= MAX_PIECES) dying = q.front();
 
-        // Validasi: sel target harus (akan) kosong
-        //   → kosong sekarang, ATAU sama dengan bidak terlama yang akan dihapus
+        // validasi: sel target harus kosong atau sama dgn bidak terlama
         bool will_be_empty =
             (board[target.r][target.c] == Cell::Empty) ||
             (dying.has_value() && *dying == target &&
              board[target.r][target.c] == cur);
 
-        if (!will_be_empty) return false;  // sel diisi lawan atau tidak valid
+        if (!will_be_empty) return false;
 
-        // HAPUS DATA: Hapus bidak terlama dari papan & keluarkan dari queue
+        // === FITUR 2: HAPUS DATA ===
         if (dying.has_value()) {
-            removePiece(*dying);  // ← Fitur: Menghapus data
+            removePiece(*dying);
             q.pop_front();
         }
 
-        // Tambahkan bidak baru ke papan dan masukkan ke belakang queue
+        // tambah bidak baru
         board[target.r][target.c] = cur;
         q.push_back(target);
         ++total_move;
 
-        // CARI DATA: Periksa kondisi menang
-        if (searchWin(cur)) {           // ← Fitur: Mencari data
+        // === FITUR 3: CARI DATA ===
+        if (searchWin(cur)) {
             status = x_turn ? Status::XWins : Status::OWins;
             if (x_turn) ++x_wins; else ++o_wins;
         } else {
-            x_turn = !x_turn;           // Ganti giliran
+            x_turn = !x_turn;
         }
         return true;
     }
 
-    // ────────────────────────────────────────────────────────────────
-    //  HAPUS DATA
-    //  removePiece() – menghapus bidak dari posisi tertentu di papan.
-    //  Dipanggil otomatis saat antrian penuh (mekanik "disappear").
-    // ────────────────────────────────────────────────────────────────
+    // === FITUR 2: HAPUS DATA ===
+    // Hapus bidak dari papan di posisi tertentu.
     void removePiece(const Pos& p) {
         board[p.r][p.c] = Cell::Empty;
     }
 
-    // ────────────────────────────────────────────────────────────────
-    //  CARI DATA
-    //  searchWin() – mencari apakah bidak c membentuk tiga sejajar.
-    //  Memeriksa semua baris, kolom, dan dua diagonal.
-    //  Return: true jika kondisi menang ditemukan.
-    // ────────────────────────────────────────────────────────────────
+    // === FITUR 3: CARI DATA ===
+    // Cek apakah ada 3 bidak sejajar (baris/kolom/diagonal).
     bool searchWin(Cell c) const {
+        // cek semua baris
         for (int i = 0; i < BOARD_SIZE; ++i) {
-            // Cek baris ke-i
             if (board[i][0] == c && board[i][1] == c && board[i][2] == c)
                 return true;
-            // Cek kolom ke-i
+            // cek semua kolom
             if (board[0][i] == c && board[1][i] == c && board[2][i] == c)
                 return true;
         }
-        // Diagonal utama (↘)
+        // diagonal utama \
         if (board[0][0] == c && board[1][1] == c && board[2][2] == c) return true;
-        // Diagonal kedua (↙)
+        // diagonal kedua /
         if (board[0][2] == c && board[1][1] == c && board[2][0] == c) return true;
         return false;
     }
 
-    // ── Helper ────────────────────────────────────────────────────
-    /// Kembalikan bidak yang akan hilang pada giliran saat ini (jika ada)
+    // HELPER
     std::optional<Pos> dyingPiece() const {
         if (status != Status::Playing) return std::nullopt;
         const auto& q = x_turn ? q_x : q_o;
@@ -197,11 +144,12 @@ public:
     Color       currentPlayerColor() const { return x_turn ? Color::Cyan : Color::Magenta; }
 };
 
-// ════════════════════════════════════════════════════════════════
-//  TAMPIL DATA  –  Helper rendering FTXUI
-// ════════════════════════════════════════════════════════════════
+// ===============================================
+//  === FITUR 4: TAMPIL DATA ===
+//  Helper rendering FTXUI
+// ===============================================
 
-/// Buat elemen visual untuk satu sel papan
+// buat visual untuk satu sel
 static Element makeCellElem(Cell cell, bool is_cursor, bool is_dying) {
     std::string sym   = "   ";
     Color       scol  = Color::White;
@@ -212,20 +160,17 @@ static Element makeCellElem(Cell cell, bool is_cursor, bool is_dying) {
     Element inner = text(sym) | bold | color(scol);
 
     if (is_dying && is_cursor) {
-        // Kursor tepat di bidak yang akan hilang → kuning pekat
         inner = text(sym) | bold | color(Color::Black) | bgcolor(Color::Yellow);
     } else if (is_dying) {
-        // Bidak akan hilang → highlight kuning
         inner = text(sym) | bold | color(Color::Black) | bgcolor(Color::Yellow);
     } else if (is_cursor) {
-        // Kursor biasa → biru gelap
         inner = text(sym) | bold | color(scol) | bgcolor(Color::Blue);
     }
 
     return inner | border;
 }
 
-/// Buat elemen visual antrian bidak
+// buat visual antrian bidak
 static Element makeQueueElem(const std::deque<Pos>& q,
                               const std::string&     label,
                               Color                  label_col)
@@ -240,10 +185,9 @@ static Element makeQueueElem(const std::deque<Pos>& q,
             bool dying = (i == 0 && static_cast<int>(q.size()) >= MAX_PIECES);
             std::string lbl = "[" + std::to_string(q[i].r + 1) +
                               "," + std::to_string(q[i].c + 1) + "]";
-            // Elemen terlama (akan hilang) = kuning, sisanya = warna pemain
             Color c = dying ? Color::Yellow : label_col;
             Element e = text(lbl) | bold | color(c);
-            if (dying) e = e | underlined;  // garis bawah tanda "akan hilang"
+            if (dying) e = e | underlined;
             elems.push_back(e);
             if (i < static_cast<int>(q.size()) - 1)
                 elems.push_back(text(" -> ") | dim);
@@ -252,21 +196,19 @@ static Element makeQueueElem(const std::deque<Pos>& q,
     return hbox(elems);
 }
 
-// ════════════════════════════════════════════════════════════════
-//  Main
-// ════════════════════════════════════════════════════════════════
+// ===============================================
+//  MAIN
+// ===============================================
 int main() {
     auto screen = ScreenInteractive::Fullscreen();
     Game game;
     game.reset();
 
-    // ── Renderer: TAMPIL DATA ─────────────────────────────────────
+    // RENDERER - tampilkan game state
     auto renderer = Renderer([&]() -> Element {
         auto dying = game.dyingPiece();
 
-        // ──────────────────────────────────────────────────────────
-        //  Papan 3×3
-        // ──────────────────────────────────────────────────────────
+        // Papan 3x3
         Elements board_rows;
         for (int r = 0; r < BOARD_SIZE; ++r) {
             Elements row_cells;
@@ -280,9 +222,7 @@ int main() {
         }
         Element board_el = vbox(board_rows) | center;
 
-        // ──────────────────────────────────────────────────────────
-        //  Status Bar
-        // ──────────────────────────────────────────────────────────
+        // Status bar
         Element status_el;
         if (game.status == Status::XWins) {
             status_el = text("  PEMAIN X MENANG!  Tekan [R] untuk bermain lagi  ")
@@ -302,15 +242,11 @@ int main() {
             status_el = hbox(st);
         }
 
-        // ──────────────────────────────────────────────────────────
-        //  Tampilan Antrian (Queue)
-        // ──────────────────────────────────────────────────────────
+        // Queue display
         Element qx_el = makeQueueElem(game.q_x, "Antrian X: ", Color::Cyan);
         Element qo_el = makeQueueElem(game.q_o, "Antrian O: ", Color::Magenta);
 
-        // ──────────────────────────────────────────────────────────
-        //  Panel Kanan (Kontrol, Statistik, Legenda)
-        // ──────────────────────────────────────────────────────────
+        // Right panel: kontrol, statistik, legenda
         Element right_panel = vbox({
             vbox({
                 text(" KONTROL ") | bold | center,
@@ -349,14 +285,10 @@ int main() {
             }) | border,
         });
 
-        // ──────────────────────────────────────────────────────────
-        //  Layout Utama
-        // ──────────────────────────────────────────────────────────
+        // Layout utama
         return vbox({
-            // Judul
             text(" TIC TAC TOE DISAPPEAR ") | bold | center | border,
             hbox({
-                // Kiri: papan + antrian + status
                 vbox({
                     board_el,
                     separator(),
@@ -365,26 +297,22 @@ int main() {
                     separator(),
                     status_el | center,
                 }) | flex,
-                // Kanan: panel info
                 right_panel,
             }),
         });
     });
 
-    // ── Event Handler ─────────────────────────────────────────────
+    // EVENT HANDLER
     auto component = CatchEvent(renderer, [&](Event ev) -> bool {
-        // Keluar
         if (ev == Event::Character('q') || ev == Event::Character('Q')) {
             screen.ExitLoopClosure()();
             return true;
         }
-        // Restart
         if (ev == Event::Character('r') || ev == Event::Character('R')) {
             game.reset();
             return true;
         }
 
-        // Gerak kursor (wrap-around antar tepi papan)
         if (game.status == Status::Playing) {
             if (ev == Event::ArrowUp) {
                 game.cursor_r = (game.cursor_r - 1 + BOARD_SIZE) % BOARD_SIZE;
@@ -402,14 +330,13 @@ int main() {
                 game.cursor_c = (game.cursor_c + 1) % BOARD_SIZE;
                 return true;
             }
-            // Letakkan bidak (input tidak valid = diabaikan)
             if (ev == Event::Return) {
-                game.addPiece();  // return false = sel terisi, diabaikan
+                game.addPiece();
                 return true;
             }
         }
 
-        return false;  // Event lain diabaikan
+        return false;
     });
 
     screen.Loop(component);
