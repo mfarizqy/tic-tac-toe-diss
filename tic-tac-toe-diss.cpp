@@ -16,72 +16,89 @@
 #include <string>
 #include <vector>
 
-using namespace ftxui;
+// Explicit using untuk menghindari ambiguity dengan ftxui::Cell
+using ftxui::ScreenInteractive;
+using ftxui::Renderer;
+using ftxui::CatchEvent;
+using ftxui::Elements;
+using ftxui::Element;
+using ftxui::Event;
+using ftxui::Color;
+using ftxui::text;
+using ftxui::bold;
+using ftxui::color;
+using ftxui::bgcolor;
+using ftxui::border;
+using ftxui::center;
+using ftxui::dim;
+using ftxui::underlined;
+using ftxui::separator;
+using ftxui::hbox;
+using ftxui::vbox;
+using ftxui::flex;
 
 // ===============================================
 //  KONSTANTA
 // ===============================================
-constexpr int BOARD_SIZE = 3;  // papan 3x3
-constexpr int MAX_PIECES = 3;  // maks 3 bidak per pemain
+constexpr int BOARD_SIZE = 3;
+constexpr int MAX_PIECES = 3;
 
 // ===============================================
 //  TIPE DATA
 // ===============================================
-enum class Cell   { Empty, X, O };           // isi satu sel
-enum class Status { Playing, XWins, OWins }; // status game
+enum class CellState { Empty, X, O };
+enum class GameStatus { Playing, XWins, OWins };
 
-struct Pos { // koordinat (baris, kolom)
+struct Pos {
     int r = 0, c = 0;
-    bool operator==(const Pos& o) const noexcept { return r == o.r && c == o.c; }
+    bool operator==(const Pos& o) const noexcept {
+        return r == o.r && c == o.c;
+    }
 };
 
 // ===============================================
-//  GAME CLASS - logika permainan
+//  GAME CLASS
 // ===============================================
 class Game {
 public:
     // STRUKTUR DATA
-    std::array<std::array<Cell, BOARD_SIZE>, BOARD_SIZE> board{};
-    std::deque<Pos> q_x;  // queue bidak X (depan = terlama)
-    std::deque<Pos> q_o;  // queue bidak O (depan = terlama)
+    std::array<std::array<CellState, BOARD_SIZE>, BOARD_SIZE> board{};
+    std::deque<Pos> q_x;
+    std::deque<Pos> q_o;
 
     // STATE
     bool   x_turn      = true;
-    Status status      = Status::Playing;
-    int    cursor_r    = 1;   // posisi kursor row
-    int    cursor_c    = 1;   // posisi kursor col
-    int    total_move  = 0;   // total langkah
-    int    x_wins      = 0;   // kemenangan X
-    int    o_wins      = 0;   // kemenangan O
+    GameStatus status  = GameStatus::Playing;
+    int    cursor_r    = 1;
+    int    cursor_c    = 1;
+    int    total_move  = 0;
+    int    x_wins      = 0;
+    int    o_wins      = 0;
 
     void reset() {
-        for (auto& row : board) row.fill(Cell::Empty);
+        for (auto& row : board) row.fill(CellState::Empty);
         q_x.clear();
         q_o.clear();
         x_turn     = true;
-        status     = Status::Playing;
+        status     = GameStatus::Playing;
         cursor_r   = 1;
         cursor_c   = 1;
         total_move = 0;
     }
 
     // === FITUR 1: TAMBAH DATA ===
-    // Letakkan bidak baru di posisi kursor.
-    // Jika antrian penuh (>=3), otomatis hapus bidak terlama dulu.
     bool addPiece() {
-        if (status != Status::Playing) return false;
+        if (status != GameStatus::Playing) return false;
 
         auto& q   = x_turn ? q_x : q_o;
-        Cell  cur = x_turn ? Cell::X : Cell::O;
-        Pos   target{cursor_r, cursor_c};
+        CellState cur = x_turn ? CellState::X : CellState::O;
+        Pos target{cursor_r, cursor_c};
 
-        // cek apakah bidak terlama akan dihapus
         std::optional<Pos> dying;
         if (static_cast<int>(q.size()) >= MAX_PIECES) dying = q.front();
 
-        // validasi: sel target harus kosong atau sama dgn bidak terlama
         bool will_be_empty =
-            (board[target.r][target.c] == Cell::Empty) ||
+            (board[target.r][target.c] == CellState::Empty) ||
             (dying.has_value() && *dying == target &&
              board[target.r][target.c] == cur);
 
@@ -93,14 +110,13 @@ public:
             q.pop_front();
         }
 
-        // tambah bidak baru
         board[target.r][target.c] = cur;
         q.push_back(target);
         ++total_move;
 
         // === FITUR 3: CARI DATA ===
         if (searchWin(cur)) {
-            status = x_turn ? Status::XWins : Status::OWins;
+            status = x_turn ? GameStatus::XWins : GameStatus::OWins;
             if (x_turn) ++x_wins; else ++o_wins;
         } else {
             x_turn = !x_turn;
@@ -109,39 +125,37 @@ public:
     }
 
     // === FITUR 2: HAPUS DATA ===
-    // Hapus bidak dari papan di posisi tertentu.
     void removePiece(const Pos& p) {
-        board[p.r][p.c] = Cell::Empty;
+        board[p.r][p.c] = CellState::Empty;
     }
 
     // === FITUR 3: CARI DATA ===
-    // Cek apakah ada 3 bidak sejajar (baris/kolom/diagonal).
-    bool searchWin(Cell c) const {
-        // cek semua baris
+    bool searchWin(CellState c) const {
         for (int i = 0; i < BOARD_SIZE; ++i) {
             if (board[i][0] == c && board[i][1] == c && board[i][2] == c)
                 return true;
-            // cek semua kolom
             if (board[0][i] == c && board[1][i] == c && board[2][i] == c)
                 return true;
         }
-        // diagonal utama \
         if (board[0][0] == c && board[1][1] == c && board[2][2] == c) return true;
-        // diagonal kedua /
         if (board[0][2] == c && board[1][1] == c && board[2][0] == c) return true;
         return false;
     }
 
-    // HELPER
     std::optional<Pos> dyingPiece() const {
-        if (status != Status::Playing) return std::nullopt;
+        if (status != GameStatus::Playing) return std::nullopt;
         const auto& q = x_turn ? q_x : q_o;
         if (static_cast<int>(q.size()) >= MAX_PIECES) return q.front();
         return std::nullopt;
     }
 
-    std::string currentPlayerStr()  const { return x_turn ? "X" : "O"; }
-    Color       currentPlayerColor() const { return x_turn ? Color::Cyan : Color::Magenta; }
+    std::string currentPlayerStr()  const {
+        return x_turn ? "X" : "O";
+    }
+
+    Color currentPlayerColor() const {
+        return x_turn ? Color::Cyan : Color::Magenta;
+    }
 };
 
 // ===============================================
@@ -149,13 +163,12 @@ public:
 //  Helper rendering FTXUI
 // ===============================================
 
-// buat visual untuk satu sel
-static Element makeCellElem(Cell cell, bool is_cursor, bool is_dying) {
+static Element makeCellElem(CellState cell, bool is_cursor, bool is_dying) {
     std::string sym   = "   ";
     Color       scol  = Color::White;
 
-    if (cell == Cell::X) { sym = " X "; scol = Color::Cyan;    }
-    if (cell == Cell::O) { sym = " O "; scol = Color::Magenta; }
+    if (cell == CellState::X) { sym = " X "; scol = Color::Cyan;    }
+    if (cell == CellState::O) { sym = " O "; scol = Color::Magenta; }
 
     Element inner = text(sym) | bold | color(scol);
 
@@ -170,7 +183,6 @@ static Element makeCellElem(Cell cell, bool is_cursor, bool is_dying) {
     return inner | border;
 }
 
-// buat visual antrian bidak
 static Element makeQueueElem(const std::deque<Pos>& q,
                               const std::string&     label,
                               Color                  label_col)
@@ -204,7 +216,6 @@ int main() {
     Game game;
     game.reset();
 
-    // RENDERER - tampilkan game state
     auto renderer = Renderer([&]() -> Element {
         auto dying = game.dyingPiece();
 
@@ -224,10 +235,10 @@ int main() {
 
         // Status bar
         Element status_el;
-        if (game.status == Status::XWins) {
+        if (game.status == GameStatus::XWins) {
             status_el = text("  PEMAIN X MENANG!  Tekan [R] untuk bermain lagi  ")
                       | bold | color(Color::Black) | bgcolor(Color::Cyan);
-        } else if (game.status == Status::OWins) {
+        } else if (game.status == GameStatus::OWins) {
             status_el = text("  PEMAIN O MENANG!  Tekan [R] untuk bermain lagi  ")
                       | bold | color(Color::Black) | bgcolor(Color::Magenta);
         } else {
@@ -246,7 +257,7 @@ int main() {
         Element qx_el = makeQueueElem(game.q_x, "Antrian X: ", Color::Cyan);
         Element qo_el = makeQueueElem(game.q_o, "Antrian O: ", Color::Magenta);
 
-        // Right panel: kontrol, statistik, legenda
+        // Right panel
         Element right_panel = vbox({
             vbox({
                 text(" KONTROL ") | bold | center,
@@ -313,7 +324,7 @@ int main() {
             return true;
         }
 
-        if (game.status == Status::Playing) {
+        if (game.status == GameStatus::Playing) {
             if (ev == Event::ArrowUp) {
                 game.cursor_r = (game.cursor_r - 1 + BOARD_SIZE) % BOARD_SIZE;
                 return true;
