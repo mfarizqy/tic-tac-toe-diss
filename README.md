@@ -1,6 +1,6 @@
 # TIC TAC TOE DISAPPEAR
 
-Game strategi seru dengan twist menarik! Nih main tic tac toe tapi dengan mekanik **bidak yang hilang**. Jadi gak bisa hanya duduk diam, harus terus gerak dan strategi dong.
+Game strategi seru dengan twist menarik! Nih main tic tac toe tapi dengan mekanik **bidak yang hilang**.
 
 ```
      PAPAN 3X3
@@ -10,13 +10,13 @@ Game strategi seru dengan twist menarik! Nih main tic tac toe tapi dengan mekani
 3 [ O ][   ][ X ]
 ```
 
-## Main Gimana Sih?
+## Cara Main?
 
 **Aturan Dasar:**
-- 2 pemain: **X** (Cyan) dan **O** (Magenta)
+- 2 pemain: **X** dan **O**
 - Papan: 3x3 (total 9 kotak)
 - Setiap pemain MAKSIMAL punya 3 bidak di papan sekaligus
-- Bidak ke-4 yang di-letakkan? Bidak pertama (terlama) **HILANG OTOMATIS** (ini yang seru!)
+- Bidak ke-4 yang di-letakkan? Bidak pertama (terlama) **HILANG OTOMATIS**
 - Tujuan: Susun 3 bidakmu sejajar (baris, kolom, atau diagonal) = **MENANG**
 
 **Contoh Gameplay:**
@@ -56,13 +56,13 @@ Game strategi seru dengan twist menarik! Nih main tic tac toe tapi dengan mekani
    - Antrian bidak real-time
    - Status game & statistik kemenangan
 
-## Visual & Warna
+## Visual
 
 ```
-[   ] = Kursor (biru)
-[XXX] = Bidak akan hilang (kuning)
-[ X ] = Pemain X (cyan)
-[ O ] = Pemain O (magenta)
+[   ] = Kursor
+[XXX] = Bidak akan hilang
+[ X ] = Pemain X
+[ O ] = Pemain O
 ```
 
 Antrian bidak ditampilkan di bawah papan dengan format:
@@ -160,13 +160,6 @@ bool searchWin(Cell c) {
 2. **Strategi dua arah** - bentuk 3 sejajar sambil potong strategi lawan
 3. **Posisi strategis** - tengah (1,1) penting karena masuk 4 kemungkinan menang
 4. **Timing** - jangan asal letakkan, pikirkan bidak mana yang mau hilang
-
-## File yang Ada
-
-- `tic-tac-toe-diss.cpp` - Source code utama
-- `CMakeLists.txt` - Build configuration
-- `README.md` - File ini
-- `DOC.md` - Dokumentasi teknis detail
 
 ---
 
